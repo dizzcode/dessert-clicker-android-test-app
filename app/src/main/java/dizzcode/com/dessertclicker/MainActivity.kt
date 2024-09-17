@@ -4,6 +4,7 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -40,6 +41,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,8 +58,18 @@ import dizzcode.com.dessertclicker.data.Datasource
 import dizzcode.com.dessertclicker.model.Dessert
 import dizzcode.com.dessertclicker.ui.theme.DessertClickerTheme
 
+/* NOTE 01
+A good convention is to declare a TAG constant in your file as its value will not change.
+
+To mark it as a compile-time constant, use const when declaring the variable.
+A compile-time constant is a value that is known during compilation.
+ */
+private const val TAG = "MainActivity"
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        Log.d(TAG, "onCreate Called")
+
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setContent {
@@ -74,6 +86,87 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    //Override Methods -> press Control+O
+
+    //app is started and onStart() is called
+    override fun onStart() {
+        super.onStart()
+        Log.d(TAG, "onStart Called")
+    }
+
+    //the app becomes visible on the screen. When onResume() is called
+    override fun onResume() {
+        super.onResume()
+        Log.d(TAG, "onResume Called")
+    }
+
+    /*
+    When the activity returns to the foreground,
+    the onCreate() method is not called again.
+    The activity object was not destroyed,
+    so it doesn't need to be created again.
+    Instead of onCreate(), the onRestart() method is called.
+
+    onRestart Called
+    onStart Called
+    onResume Called
+     */
+    override fun onRestart() {
+        super.onRestart()
+        Log.d(TAG, "onRestart Called")
+    }
+
+    //When the app goes into the background, the focus is lost after onPause()
+    override fun onPause() {
+        super.onPause()
+        Log.d(TAG, "onPause Called")
+    }
+
+
+    //the app is no longer visible after onStop()
+    override fun onStop() {
+        super.onStop()
+        Log.d(TAG, "onStop Called")
+    }
+
+    //the activity shuts down, it calls
+    // onPause(), onStop(), and onDestroy(), in that order.
+    override fun onDestroy() {
+        super.onDestroy()
+        Log.d(TAG, "onDestroy Called")
+    }
+
+    /* Note 02
+    Data loss on device rotation
+
+    Notice that when the device or emulator rotates the screen,
+    the system calls all the lifecycle callbacks to shut down the activity.
+    Then, as the activity is re-created,
+    the system calls all the lifecycle callbacks to start the activity.
+
+    When the device is rotated, and the activity is shut down and re-created,
+    the activity re-starts with default values
+
+     */
+
+
+    /** Note 03 ***
+    Lifecycle of a composable
+
+    The UI of your app is initially built
+    from running composable functions in a process called Composition.
+
+    When the state of your app changes, a recomposition is scheduled.
+
+    In order for Compose to track and trigger a recomposition,
+    it needs to know when state has changed.
+    To indicate to Compose that it should track an object's state,
+    the object needs to be of type State or MutableState.
+    The State type is immutable and can only be read.
+    A MutableState type is mutable and allows reads and writes.
+
+     */
 }
 
 /**
@@ -130,7 +223,61 @@ private fun DessertClickerApp(
     desserts: List<Dessert>
 ) {
 
-    var revenue by remember { mutableStateOf(0) }
+    /** Note 04
+     *
+     * To create the mutable variable revenue, you declare it using mutableStateOf.
+     * 0 is its initial default value.
+     *
+     * var revenue = mutableStateOf(0)
+     *-------------------------------------------------------------------------
+     * While this is enough to have Compose trigger a recomposition when the
+     * revenue value changes, it is not enough to retain its updated value.
+     * Each time the composable is reexecuted, it will reinitialize the
+     * revenue value to its initial default value of 0.
+     *
+     * To instruct Compose to retain and reuse its value during recompositions,
+     * you need to declare it with the remember API.
+     *
+     * var revenue by remember { mutableStateOf(0) }
+     *
+     * If the value of revenue changes,
+     * Compose schedules all composable functions that read this value for recomposition.
+     *
+     *-------------------------------------------------------------------------
+     */
+
+    /** Note 05
+     * rememberSaveable
+     *
+     * Use rememberSaveable to save values across configuration changes
+     *
+     * You use the rememberSaveable function to save values that you need if Android OS destroys and recreates the activity.
+     *
+     * To save values during recompositions, you need to use remember.
+     * Use rememberSaveable to save values during recompositions AND configuration changes.
+     *
+     *-------------------------------------------------------------------------
+     * var revenue by remember { mutableStateOf(0) }
+     * to ->
+     *var revenue by rememberSaveable { mutableStateOf(0) }
+     *
+     * -------------------------------------------------------------------------
+     *
+     * var currentDessertImageId by remember {
+     *     mutableStateOf(desserts[currentDessertIndex].imageId)
+     * }
+     * to ->
+     * var currentDessertImageId by rememberSaveable {
+     *     mutableStateOf(desserts[currentDessertIndex].imageId)
+     * }
+     *
+     *-------------------------------------------------------------------------
+     */
+
+
+    //var revenue by remember { mutableStateOf(0) }
+    var revenue by rememberSaveable { mutableStateOf(0) }
+
     var dessertsSold by remember { mutableStateOf(0) }
 
     val currentDessertIndex by remember { mutableStateOf(0) }
@@ -138,7 +285,10 @@ private fun DessertClickerApp(
     var currentDessertPrice by remember {
         mutableStateOf(desserts[currentDessertIndex].price)
     }
-    var currentDessertImageId by remember {
+//    var currentDessertImageId by remember {
+//        mutableStateOf(desserts[currentDessertIndex].imageId)
+//    }
+    var currentDessertImageId by rememberSaveable {
         mutableStateOf(desserts[currentDessertIndex].imageId)
     }
 
@@ -157,9 +307,11 @@ private fun DessertClickerApp(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(
-                        start = WindowInsets.safeDrawing.asPaddingValues()
+                        start = WindowInsets.safeDrawing
+                            .asPaddingValues()
                             .calculateStartPadding(layoutDirection),
-                        end = WindowInsets.safeDrawing.asPaddingValues()
+                        end = WindowInsets.safeDrawing
+                            .asPaddingValues()
                             .calculateEndPadding(layoutDirection),
                     )
                     .background(MaterialTheme.colorScheme.primary)
